@@ -1,0 +1,10 @@
+{
+  "name": "Butcher Seafood Scale PWA",
+  "description": "Progressive Web App for butcher staff to snapshot scales and log seafood weighings offline and sync to Google Sheets.",
+  "requestFramePermissions": [
+    "camera"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
