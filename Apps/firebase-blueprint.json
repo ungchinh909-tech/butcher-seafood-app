@@ -1,0 +1,134 @@
+{
+  "entities": {
+    "Butcher": {
+      "title": "Butcher",
+      "description": "Information about a butcher",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "pin": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "Hoạt động",
+            "Khóa"
+          ]
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "name",
+        "pin",
+        "status",
+        "createdAt"
+      ]
+    },
+    "Admin": {
+      "title": "Admin",
+      "description": "Admin email record",
+      "type": "object",
+      "properties": {
+        "addedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "addedAt"
+      ]
+    },
+    "GoogleConfig": {
+      "title": "GoogleConfig",
+      "description": "Google Integration Config",
+      "type": "object",
+      "properties": {
+        "spreadsheetId": {
+          "type": "string"
+        },
+        "googleClientId": {
+          "type": "string"
+        },
+        "googleClientSecret": {
+          "type": "string"
+        },
+        "redirectUri": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "spreadsheetId",
+        "googleClientId",
+        "redirectUri"
+      ]
+    },
+    "ReportRecord": {
+      "title": "ReportRecord",
+      "description": "Weighing report record",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "seafoodName": {
+          "type": "string"
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "kg": {
+          "type": "number"
+        },
+        "imageData": {
+          "type": "string"
+        },
+        "butcherName": {
+          "type": "string"
+        },
+        "butcherPin": {
+          "type": "string"
+        },
+        "synced": {
+          "type": "boolean"
+        },
+        "driveUrl": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "seafoodName",
+        "timestamp",
+        "imageData",
+        "butcherName",
+        "butcherPin",
+        "synced"
+      ]
+    }
+  },
+  "firestore": {
+    "butchers/{butcherId}": {
+      "schema": "Butcher",
+      "description": "Collection of butchers"
+    },
+    "admins/{email}": {
+      "schema": "Admin",
+      "description": "Collection of administrative users"
+    },
+    "config/google_sheets": {
+      "schema": "GoogleConfig",
+      "description": "Google Sheet and OAuth Configurations"
+    },
+    "reports/{reportId}": {
+      "schema": "ReportRecord",
+      "description": "Collection of weighed seafood reports"
+    }
+  }
+}

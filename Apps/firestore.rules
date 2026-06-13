@@ -1,0 +1,75 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // 1. Global Catch-all Default-deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Hardened Global Helpers
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isAdmin() {
+      return isVerifiedUser() && exists(/databases/$(database)/documents/admins/$(request.auth.token.email));
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // 2. Validation Blueprints
+    function isValidButcher(data) {
+      return data.name is string && data.name.size() <= 128 &&
+             data.pin is string && data.pin.size() <= 16 &&
+             data.status in ['Hoạt động', 'Khóa'] &&
+             data.createdAt is string;
+    }
+
+    function isValidGoogleConfig(data) {
+      return data.spreadsheetId is string && data.spreadsheetId.size() <= 128 &&
+             data.googleClientId is string && data.googleClientId.size() <= 256 &&
+             data.redirectUri is string && data.redirectUri.size() <= 512;
+    }
+
+    function isValidReport(data) {
+      return data.id is string && data.id.size() <= 128 &&
+             data.seafoodName is string && data.seafoodName.size() <= 128 &&
+             data.timestamp is string &&
+             data.imageData is string && data.imageData.size() <= 10485760 && // 10MB limit
+             data.butcherName is string && data.butcherName.size() <= 128 &&
+             data.butcherPin is string && data.butcherPin.size() <= 16 &&
+             data.synced is bool;
+    }
+
+    // 3. Collection Rules with Path Variable Hardening
+    match /butchers/{butcherId} {
+      allow read: if isSignedIn();
+      allow create, update: if isAdmin() && isValidId(butcherId) && isValidButcher(request.resource.data);
+      allow delete: if isAdmin() && isValidId(butcherId);
+    }
+
+    match /admins/{email} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    match /config/google_sheets {
+      allow read: if isAdmin();
+      allow write: if isAdmin() && isValidGoogleConfig(request.resource.data);
+    }
+
+    match /reports/{reportId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(reportId) && isValidReport(request.resource.data);
+      allow update: if isAdmin() && isValidId(reportId) && isValidReport(request.resource.data);
+      allow delete: if isAdmin() && isValidId(reportId);
+    }
+  }
+}
