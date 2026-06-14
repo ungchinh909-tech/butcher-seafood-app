@@ -644,38 +644,64 @@ export default function App() {
   };
 
   // Camera start / stop / sounds
-  const startCamera = async () => {
-    setCameraLoading(true);
-    setNoCameraAccess(false);
-    setCapturedImage(null);
-    setManualKg("");
-    setOcrResultKg(null);
+const startCamera = async () => {
+  setCameraLoading(true);
+  setNoCameraAccess(false);
+  setCapturedImage(null);
+  setManualKg("");
+  setOcrResultKg(null);
 
+  try {
+    if (cameraStream) {
+      cameraStream.getTracks().forEach((track) => track.stop());
+    }
+
+    // Cấu hình camera tối ưu cho cả Android và iOS
+    const constraints = {
+      video: {
+        facingMode: { exact: "environment" }, // ưu tiên camera sau
+        width: { ideal: 1280 },
+        height: { ideal: 720 },
+        aspectRatio: { ideal: 1.7777777778 }, // 16:9
+      },
+      audio: false,
+    };
+
+    const stream = await navigator.mediaDevices.getUserMedia(constraints);
+    setCameraStream(stream);
+    
+    if (videoRef.current) {
+      videoRef.current.srcObject = stream;
+      videoRef.current.setAttribute("playsinline", "true"); // QUAN TRỌNG: fix lỗi iOS hiện trình phát video
+      videoRef.current.setAttribute("autoplay", "true");
+      await videoRef.current.play();
+    }
+  } catch (error) {
+    console.warn("Camera error:", error);
+    
+    // Fallback: nếu exact environment thất bại, thử không có facingMode
     try {
-      if (cameraStream) {
-        cameraStream.getTracks().forEach((track) => track.stop());
-      }
-      const constraints = {
+      const fallbackConstraints = {
         video: {
-          facingMode: { ideal: "environment" },
           width: { ideal: 1280 },
           height: { ideal: 720 },
         },
         audio: false,
       };
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
-      setCameraStream(stream);
+      const fallbackStream = await navigator.mediaDevices.getUserMedia(fallbackConstraints);
+      setCameraStream(fallbackStream);
       if (videoRef.current) {
-        videoRef.current.srcObject = stream;
+        videoRef.current.srcObject = fallbackStream;
+        videoRef.current.setAttribute("playsinline", "true");
+        await videoRef.current.play();
       }
-    } catch (error) {
-      console.warn("Camera fallback triggered due to browser block.", error);
+    } catch (fallbackError) {
       setNoCameraAccess(true);
-    } finally {
-      setCameraLoading(false);
     }
-  };
-
+  } finally {
+    setCameraLoading(false);
+  }
+};
   const stopCamera = () => {
     if (cameraStream) {
       cameraStream.getTracks().forEach((track) => track.stop());
@@ -1402,88 +1428,88 @@ export default function App() {
               </div>
 
               {/* Viewfinder block */}
-              <div className="bg-slate-950 rounded-lg border border-slate-850 relative overflow-hidden flex flex-col items-center justify-center min-h-[260px] aspect-video">
-                <div className="absolute inset-3 border border-white/5 border-dashed rounded-lg pointer-events-none z-10"></div>
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-24 border border-dashed border-blue-500/60 rounded flex items-center justify-center pointer-events-none z-10">
-                  <span className="text-[8px] bg-[#0c121d] px-1 text-blue-400 absolute -top-2.5 uppercase font-black tracking-widest">
-                    Ô Đọc Số Cân
-                  </span>
-                  <span className="absolute -top-0.5 -left-0.5 w-3 h-3 border-t-2 border-l-2 border-blue-500"></span>
-                  <span className="absolute -top-0.5 -right-0.5 w-3 h-3 border-t-2 border-r-2 border-blue-500"></span>
-                  <span className="absolute -bottom-0.5 -left-0.5 w-3 h-3 border-b-2 border-l-2 border-blue-500"></span>
-                  <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 border-b-2 border-r-2 border-blue-500"></span>
-                </div>
+       <div className="bg-slate-950 rounded-lg border border-slate-850 relative overflow-hidden flex flex-col items-center justify-center w-full" style={{ aspectRatio: '16/9', maxWidth: '100%' }}>
+  <div className="absolute inset-3 border border-white/5 border-dashed rounded-lg pointer-events-none z-10"></div>
+  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-3/5 h-1/3 border border-dashed border-blue-500/60 rounded flex items-center justify-center pointer-events-none z-10">
+    <span className="text-[8px] bg-[#0c121d] px-1 text-blue-400 absolute -top-2.5 uppercase font-black tracking-widest whitespace-nowrap">
+      Ô Đọc Số Cân
+    </span>
+    <span className="absolute -top-0.5 -left-0.5 w-3 h-3 border-t-2 border-l-2 border-blue-500"></span>
+    <span className="absolute -top-0.5 -right-0.5 w-3 h-3 border-t-2 border-r-2 border-blue-500"></span>
+    <span className="absolute -bottom-0.5 -left-0.5 w-3 h-3 border-b-2 border-l-2 border-blue-500"></span>
+    <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 border-b-2 border-r-2 border-blue-500"></span>
+  </div>
 
-                {!noCameraAccess && !capturedImage && (
-                  <div className="absolute inset-0 w-full h-full">
-                    {cameraLoading && (
-                      <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-950/90 z-20">
-                        <RefreshCw className="w-4 h-4 animate-spin text-blue-500 mb-1.5" />
-                        <span className="text-[9px] font-bold tracking-widest text-slate-500 uppercase">
-                          Khởi Động Trình Camera...
-                        </span>
-                      </div>
-                    )}
-                    <video
-                      ref={videoRef}
-                      autoPlay
-                      playsInline
-                      muted
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                )}
+  {!noCameraAccess && !capturedImage && (
+    <div className="absolute inset-0 w-full h-full">
+      {cameraLoading && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-950/90 z-20">
+          <RefreshCw className="w-4 h-4 animate-spin text-blue-500 mb-1.5" />
+          <span className="text-[9px] font-bold tracking-widest text-slate-500 uppercase">
+            Khởi Động Camera...
+          </span>
+        </div>
+      )}
+      <video
+        ref={videoRef}
+        autoPlay
+        playsInline
+        muted
+        className="w-full h-full object-cover"
+        style={{ transform: 'scaleX(-1)' }} // Tự động sửa ảnh bị lộn ngược trên một số máy
+      />
+    </div>
+  )}
 
-                {(noCameraAccess || capturedImage) && (
-                  <div className="absolute inset-0 w-full h-full bg-slate-950 flex flex-col items-center justify-center p-4">
-                    {capturedImage ? (
-                      <img
-                        src={capturedImage}
-                        alt="Captured preview"
-                        referrerPolicy="no-referrer"
-                        className="w-full h-full object-contain rounded"
-                      />
-                    ) : (
-                      <div className="text-center p-4 z-10">
-                        <AlertTriangle className="w-6 h-6 text-amber-500 mx-auto mb-1.5" />
-                        <p className="text-[10px] text-slate-400 mb-3 max-w-[200px] mx-auto">
-                          Trình camera bị hạn chế trong trình duyet, vui lòng
-                          chụp hình thiết bị thủ công.
-                        </p>
-                        <button
-                          onClick={() => fileInputRef.current?.click()}
-                          className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-[9px] rounded uppercase cursor-pointer"
-                        >
-                          Chụp ảnh / Chọn File
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                )}
+  {(noCameraAccess || capturedImage) && (
+    <div className="absolute inset-0 w-full h-full bg-slate-950 flex flex-col items-center justify-center p-4">
+      {capturedImage ? (
+        <img
+          src={capturedImage}
+          alt="Captured preview"
+          referrerPolicy="no-referrer"
+          className="w-full h-full object-contain rounded"
+        />
+      ) : (
+        <div className="text-center p-4 z-10">
+          <AlertTriangle className="w-6 h-6 text-amber-500 mx-auto mb-1.5" />
+          <p className="text-[10px] text-slate-400 mb-3 max-w-[200px] mx-auto">
+            Camera bị hạn chế, vui lòng chụp ảnh thủ công.
+          </p>
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-[9px] rounded uppercase cursor-pointer"
+          >
+            Chọn ảnh từ thư viện
+          </button>
+        </div>
+      )}
+    </div>
+  )}
 
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  onChange={handleFileSelect}
-                  className="hidden"
-                />
+  <input
+    ref={fileInputRef}
+    type="file"
+    accept="image/*"
+    capture="environment"
+    onChange={handleFileSelect}
+    className="hidden"
+  />
 
-                {!capturedImage && !noCameraAccess && (
-                  <div className="absolute bottom-3.5 flex flex-col items-center z-20">
-                    <button
-                      onClick={capturePhoto}
-                      className="w-11 h-11 bg-white hover:bg-slate-100 rounded-full border-4 border-slate-900 flex items-center justify-center active:scale-90 transition-transform cursor-pointer"
-                    >
-                      <div className="w-5 h-5 rounded-full bg-red-650"></div>
-                    </button>
-                    <span className="mt-1 text-[8px] tracking-widest text-[#576882] font-black uppercase bg-slate-950/80 px-1 py-0.5 rounded">
-                      NHẤN CHỤP ẢNH
-                    </span>
-                  </div>
-                )}
-              </div>
+  {!capturedImage && !noCameraAccess && (
+    <div className="absolute bottom-3.5 flex flex-col items-center z-20">
+      <button
+        onClick={capturePhoto}
+        className="w-11 h-11 bg-white hover:bg-slate-100 rounded-full border-4 border-slate-900 flex items-center justify-center active:scale-90 transition-transform cursor-pointer"
+      >
+        <div className="w-5 h-5 rounded-full bg-red-600"></div>
+      </button>
+      <span className="mt-1 text-[8px] tracking-widest text-[#576882] font-black uppercase bg-slate-950/80 px-1 py-0.5 rounded">
+        NHẤN CHỤP ẢNH
+      </span>
+    </div>
+  )}
+</div>
 
               {/* Weight edit fields */}
               <div className="bg-[#0f172a] p-3.5 rounded-lg border border-slate-800 space-y-2 flex-shrink-0">
