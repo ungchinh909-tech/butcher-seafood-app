@@ -2,7 +2,6 @@
  * Google Drive and Sheets API helper module
  */
 
-// Helper to format date in Vietnam time (captured timezone) or standard local string
 export function getFormattedDateTime(dateTimeStr?: string): string {
   if (dateTimeStr) return dateTimeStr;
   const now = new Date();
@@ -15,7 +14,6 @@ export function getFormattedDateTime(dateTimeStr?: string): string {
   return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
 }
 
-// Helper to convert base64 (e.g. data:image/jpeg;base64,...) to Blob
 export function base64ToBlob(base64Data: string, contentType = "image/jpeg"): Blob {
   const sliceSize = 512;
   const byteCharacters = atob(base64Data.split(",")[1] || base64Data);
@@ -34,7 +32,6 @@ export function base64ToBlob(base64Data: string, contentType = "image/jpeg"): Bl
   return new Blob(byteArrays, { type: contentType });
 }
 
-// Uploads a base64 image file to Google Drive and makes it readable by anyone with the link
 export async function uploadImageToDrive(
   accessToken: string,
   fileName: string,
@@ -42,7 +39,6 @@ export async function uploadImageToDrive(
 ): Promise<string> {
   const blob = base64ToBlob(base64Data, "image/jpeg");
   
-  // Create multipart payload body for Drive v3 api
   const metadata = {
     name: fileName,
     mimeType: "image/jpeg",
@@ -63,14 +59,11 @@ export async function uploadImageToDrive(
   const metadataPart = `${delimiter}Content-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n`;
   const mediaPartHeader = `\r\n--${boundary}\r\nContent-Type: image/jpeg\r\nContent-Transfer-Encoding: base64\r\n\r\n`;
   
-  // Convert binary media directly or just convert metadata in text, join them
-  // A clean standard way with Blob is:
   const enc = new TextEncoder();
   const metadataBytes = enc.encode(metadataPart);
   const mediaHeaderBytes = enc.encode(mediaPartHeader);
   const closeBytes = enc.encode(closeDelimiter);
   
-  // Read base64 raw string
   const base64Raw = base64Data.split(",")[1] || base64Data;
   const mediaBase64Bytes = enc.encode(base64Raw);
   
@@ -100,7 +93,6 @@ export async function uploadImageToDrive(
   const responseData = await response.json();
   const fileId = responseData.id;
   
-  // 2. Set file permissions so anyone with the link can view it (ideal for Google Sheets links)
   try {
     await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}/permissions`, {
       method: "POST",
@@ -117,13 +109,10 @@ export async function uploadImageToDrive(
     console.warn("Could not set anyone-readable permission, continuing...", permError);
   }
   
-  // Return standard Drive shareable link
   return `https://drive.google.com/file/d/${fileId}/view`;
 }
 
-// Creates or locates a Google Sheet named "Butcher Seafood Scale Records"
 export async function getOrCreateSpreadsheet(accessToken: string): Promise<string> {
-  // 1. Search for existing spreadsheet in Drive first
   const query = encodeURIComponent("name = 'Butcher Seafood Scale Records' and mimeType = 'application/vnd.google-apps.spreadsheet' and trashed = false");
   const searchUrl = `https://www.googleapis.com/drive/v3/files?q=${query}&fields=files(id,name)`;
   
@@ -135,15 +124,14 @@ export async function getOrCreateSpreadsheet(accessToken: string): Promise<strin
     if (searchRes.ok) {
       const searchData = await searchRes.json();
       if (searchData.files && searchData.files.length > 0) {
-        console.log("Tìm thấy bảng tính sẵn có:", searchData.files[0].id);
-        return searchData.files[0].id; // Re-use existing sheet
+        console.log("Found existing spreadsheet:", searchData.files[0].id);
+        return searchData.files[0].id;
       }
     }
   } catch (searchErr) {
     console.error("Search spreadsheet error:", searchErr);
   }
   
-  // 2. Create a new Google Sheet
   const createRes = await fetch("https://sheets.googleapis.com/v4/spreadsheets", {
     method: "POST",
     headers: {
@@ -165,25 +153,25 @@ export async function getOrCreateSpreadsheet(accessToken: string): Promise<strin
   const sheetData = await createRes.json();
   const spreadsheetId = sheetData.spreadsheetId;
   
-  // 3. Initialize head rows
   await appendRowToSheet(accessToken, spreadsheetId, [
     "Thời gian",
+    "Tên Butcher",
+    "Mã PIN",
     "Mặt hàng",
-    "Số kg (từ AI)",
+    "Số kg",
     "Đường dẫn ảnh",
-    "Đã đối chiếu"
+    "Trạng thái",
   ]);
   
   return spreadsheetId;
 }
 
-// Appends a single row of values to the specified Spreadsheet ID
 export async function appendRowToSheet(
   accessToken: string,
   spreadsheetId: string,
   values: (string | number | null)[]
 ): Promise<void> {
-  const range = "Sheet1!A1"; // Appending will auto-scan table and append after the last row
+  const range = "Sheet1!A1";
   const appendUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}:append?valueInputOption=USER_ENTERED`;
   
   const response = await fetch(appendUrl, {
