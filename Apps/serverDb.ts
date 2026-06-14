@@ -99,21 +99,46 @@ if (!fs.existsSync(ADMINS_FILE)) {
   fs.writeFileSync(ADMINS_FILE, JSON.stringify(defaultAdmins, null, 2), "utf8");
 }
 
+// ==================== PHẦN QUAN TRỌNG NHẤT ĐÃ ĐƯỢC SỬA ====================
+// Khởi tạo Firestore bằng credentials từ biến môi trường
 if (!isFirestoreDisabled) {
   try {
-    // Pass both projectId and databaseId so the Firestore SDK targets the correctly provisioned user database.
-    firestore = new Firestore({
-      projectId: configProject,
-      databaseId: configDatabase
-    });
-    console.log(`Firebase/Firestore Admin SDK initialized successfully with project ID: ${configProject}, database ID: ${configDatabase}`);
+    // Ưu tiên dùng credentials từ biến môi trường do anh đã thêm trên Render
+    const credentialsJson = process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON;
+    
+    if (credentialsJson && configProject) {
+      const credentials = JSON.parse(credentialsJson);
+      console.log("Initializing Firestore with provided service account credentials.");
+      
+      firestore = new Firestore({
+        projectId: configProject,
+        databaseId: configDatabase,
+        credentials: {
+          client_email: credentials.client_email,
+          private_key: credentials.private_key,
+        },
+      });
+      console.log(`Firebase/Firestore Admin SDK initialized successfully with project ID: ${configProject}, database ID: ${configDatabase}`);
+    } 
+    // Fallback: dùng mặc định (chỉ hoạt động trên local AI Studio)
+    else if (configProject && configDatabase) {
+      console.log("No credentials JSON found. Attempting default credentials (for local development).");
+      firestore = new Firestore({
+        projectId: configProject,
+        databaseId: configDatabase
+      });
+      console.log(`Firebase/Firestore Admin SDK initialized with default credentials. Project: ${configProject}, Database: ${configDatabase}`);
+    } else {
+      throw new Error("Missing project or database configuration.");
+    }
   } catch (error) {
-    console.warn("Could not auto-initialize GCP Firestore. Using file-based backup engine.", error);
+    console.error("Could not auto-initialize Firestore. Using file-based backup engine.", error);
     isFirestoreDisabled = true;
   }
 } else {
   console.log("Using local file-based backup engine for application database (stored in /data_fallback).");
 }
+// =======================================================================
 
 function handleFirestoreError(err: any, context: string) {
   const errMsg = err?.message || String(err);
