@@ -927,17 +927,18 @@ const startCamera = async () => {
             fileName,
             record.imageData,
           );
-
+          console.log("Uploaded to Drive, URL:", driveUrl);
           // Append to Google Sheets: | Thời gian | Tên Butcher | Mã PIN | Mặt hàng | Số kg | Đường dẫn ảnh | Trạng thái |
-          await appendRowToSheet(googleToken, activeSpreadsheetId, [
-            record.timestamp,
-            record.butcherName || "Không rõ",
-            record.butcherPin || "----",
-            record.seafoodName,
-            record.kg !== null ? record.kg : "",
-            driveUrl,
-            "Chưa đối chiếu",
-          ]);
+         await appendRowToSheet(googleToken, activeSpreadsheetId, [
+  record.timestamp,
+  record.butcherName || "Không rõ",
+  record.butcherPin || "----",
+  record.seafoodName,
+  record.kg !== null ? record.kg : "",
+  driveUrl,
+  "Đã đồng bộ",
+]);
+console.log("Appended to Sheets for record:", record.id);
 
           // Update IndexedDB
           await markRecordAsSynced(record.id, driveUrl);
